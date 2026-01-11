@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LLM Sarcasm Detection Comparison</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div id="container">
+    <h1>LLM Sarcasm Detection Comparison</h1>
+
+    <div class="input-group">
+        <label>Gemini API Key</label>
+        <input type="password" id="gemini-key">
+    </div>
+
+    <div class="input-group">
+        <label>Groq API Key</label>
+        <input type="password" id="groq-key">
+    </div>
+
+    <h2>Interactive Single Test</h2>
+    <select id="sentence-dropdown"></select>
+    <button onclick="runSingleTest()">Test Selected</button>
+
+    <div id="single-result">
+        <p><strong>Gemini:</strong> <span id="gemini-single"></span></p>
+        <p><strong>Groq:</strong> <span id="groq-single"></span></p>
+    </div>
+
+    <h2>Custom Sentence Test</h2>
+    <textarea id="custom-sentence" placeholder="Enter your sentence here..."></textarea>
+    <select id="custom-label">
+        <option value="Sarcastic">Sarcastic</option>
+        <option value="Not Sarcastic">Not Sarcastic</option>
+    </select>
+    <button onclick="runCustomTest()">Test Custom</button>
+
+    <div id="custom-result">
+        <p><strong>Gemini:</strong> <span id="gemini-custom"></span></p>
+        <p><strong>Groq:</strong> <span id="groq-custom"></span></p>
+    </div>
+
+    <h2>Batch Evaluation (Live)</h2>
+    <button onclick="runBatchTest()">Run Batch Test</button>
+
+    <div class="results-box">
+        <div class="result-card">
+            <h3>Gemini Accuracy</h3>
+            <p id="gemini-acc">--</p>
+        </div>
+        <div class="result-card">
+            <h3>Groq Accuracy</h3>
+            <p id="groq-acc">--</p>
+        </div>
+    </div>
+
+    <div id="log"></div>
+</div>
+
+<script>
+async function loadDropdown() {
+    const res = await fetch("/load_data");
+    const data = await res.json();
+    const dropdown = document.getElementById("sentence-dropdown");
+    dropdown.innerHTML = "";
+    data.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item.sentence;
+        opt.dataset.label = item.label;
+        opt.textContent = `(${item.label}) ${item.sentence.substring(0, 80)}...`;
+        dropdown.appendChild(opt);
+    });
+}
+
+async function runSingleTest() {
+    const dropdown = document.getElementById("sentence-dropdown");
+    const sentence = dropdown.value;
+    const label = dropdown.selectedOptions[0].dataset.label;
+
+    const body = {
+        sentence: sentence,
+        actual_label: label,
+        gemini_key: document.getElementById("gemini-key").value,
+        groq_key: document.getElementById("groq-key").value
+    };
+
+    const res = await fetch("/single_test", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    document.getElementById("gemini-single").textContent = data.gemini;
+    document.getElementById("groq-single").textContent = data.groq;
+}
+
+async function runCustomTest() {
+    const body = {
+        sentence: document.getElementById("custom-sentence").value,
+        actual_label: document.getElementById("custom-label").value,
+        gemini_key: document.getElementById("gemini-key").value,
+        groq_key: document.getElementById("groq-key").value
+    };
+
+    const res = await fetch("/single_test", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    document.getElementById("gemini-custom").textContent = data.gemini;
+    document.getElementById("groq-custom").textContent = data.groq;
+}
+
+function runBatchTest() {
+    const geminiKey = document.getElementById("gemini-key").value;
+    const groqKey = document.getElementById("groq-key").value;
+
+    const log = document.getElementById("log");
+    log.innerHTML = "<p>Starting batch test...</p>";
+
+    document.getElementById("gemini-acc").textContent = "--";
+    document.getElementById("groq-acc").textContent = "--";
+
+    const source = new EventSource(
+        `/batch_test_stream?gemini_key=${encodeURIComponent(geminiKey)}&groq_key=${encodeURIComponent(groqKey)}`
+    );
+
+    source.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+
+        const i = data.index;
+        const total = data.total;
+
+        document.getElementById("gemini-acc").textContent = `${data.gemini_score}/${i}`;
+        document.getElementById("groq-acc").textContent = `${data.groq_score}/${i}`;
+
+        log.innerHTML += `
+            <p>
+                <b>${i}/${total}</b> — ${data.sentence}<br>
+                Gemini: ${data.gemini} (${data.gemini_correct ? "CORRECT" : "WRONG"}) |
+                Groq: ${data.groq} (${data.groq_correct ? "CORRECT" : "WRONG"})
+            </p>
+        `;
+
+        if (i === total) {
+            const winner =
+                data.gemini_score > data.groq_score ? "Gemini wins!" :
+                data.groq_score > data.gemini_score ? "Groq wins!" :
+                "It's a tie!";
+
+            log.innerHTML += `<p><strong>Batch finished. ${winner}</strong></p>`;
+            source.close();
+        }
+    };
+
+    source.onerror = function() {
+        log.innerHTML += "<p style='color:red'>Streaming error.</p>";
+        source.close();
+    };
+}
+
+loadDropdown();
+</script>
+</body>
+</html>
