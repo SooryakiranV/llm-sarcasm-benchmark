@@ -34,7 +34,7 @@ This project provides an end-to-end evaluation framework for analyzing how diffe
 
 ## Dataset
 
-[Sarcasm Headlines Dataset](https://www.kaggle.com/datasets/rmisra/news-headlines-dataset-for-sarcasm-detection) — 28,000+ labeled news headlines. Dataset file included in the repository under `data/`.
+[Sarcasm Headlines Dataset](https://www.kaggle.com/datasets/rmisra/news-headlines-dataset-for-sarcasm-detection) - 28,000+ labeled news headlines. Dataset file included in the repository under `data/`.
 
 ## Run
 
