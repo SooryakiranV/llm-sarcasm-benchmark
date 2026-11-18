@@ -42,10 +42,14 @@ def single_test():
     })
 
 
-@app.route("/batch_test_stream", methods=["GET"])
+@app.route("/batch_test_stream", methods=["POST"])
 def batch_test_stream():
-    gemini_key = request.args.get("gemini_key")
-    groq_key = request.args.get("groq_key")
+    data = request.get_json(silent=True) or {}
+    gemini_key = data.get("gemini_key")
+    groq_key = data.get("groq_key")
+
+    if not gemini_key or not groq_key:
+        return jsonify({"error": "Both Gemini and Groq API keys are required."}), 400
 
     batch_records, _ = load_sarcasm_dataset(
         DATASET_PATH, BATCH_SIZE, INTERACTIVE_SIZE

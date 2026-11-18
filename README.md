@@ -1,44 +1,28 @@
-# LLM Sarcasm Detection Benchmark
+# LLM Sarcasm Comparison
 
-A Flask-based web platform to benchmark sarcasm detection performance of large language models using a labeled news headline dataset. The system compares Google Gemini and LLaMA-3.1 (via Groq) with live batch evaluation, real-time accuracy tracking, and interactive testing.
+A Flask app that compares Gemini 2.5 Flash-Lite and Llama 3.1 8B through Groq on sarcasm headline classification.
 
-## Results
-- Benchmarked **Gemini 2.5 Flash vs LLaMA-3.1** on **28,000+ sarcasm headlines**
-- Real-time accuracy tracking via Server-Sent Events - live-updating scores without page refresh
-- Prompt constraints (temperature=0, max 20 tokens) enforced for consistent, comparable outputs across both models
+## What it does
 
-## Overview
+The app supports single-headline, custom-text, and batch modes. Batch mode streams a live running score with Server-Sent Events.
 
-This project provides an end-to-end evaluation framework for analyzing how different LLMs interpret sarcasm in short texts. It supports:
+The dataset is the 28K-headline Sarcasm Headlines set. A batch run scores a random sample of 10 headlines, as set by `BATCH_SIZE` in `app.py`, with a 5 second delay between calls. This is a comparison demo, not a full benchmark.
 
-- Interactive single-sentence testing  
-- Custom user-defined sentence evaluation  
-- Dataset-level batch benchmarking  
-- Real-time streaming of predictions and accuracy  
-- Model-to-model comparison (Gemini vs LLaMA-3.1)
+## Run locally
 
-## Features
+The dataset file is included in `data/`.
 
-- LLM Integration
-  - Google Gemini API
-  - Groq API (LLaMA-3.1)
-
-- Evaluation Modes
-  - Single headline test
-  - Custom sentence test
-  - Live batch evaluation
-
-- Metrics
-  - Running accuracy per model
-  - Final winner selection
-
-## Dataset
-
-[Sarcasm Headlines Dataset](https://www.kaggle.com/datasets/rmisra/news-headlines-dataset-for-sarcasm-detection) - 28,000+ labeled news headlines. Dataset file included in the repository under `data/`.
-
-## Run
-
-pip install -r requirements.txt  
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 python app.py
+```
 
-Open: http://127.0.0.1:5000
+Open http://127.0.0.1:5000.
+
+Enter your Gemini and Groq API keys in the app before running a model comparison. The batch endpoint uses POST so keys are not placed in the URL. Do not commit API keys.
+
+## Topics
+
+flask, sarcasm-detection, llm-evaluation, gemini, groq, server-sent-events

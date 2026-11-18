@@ -115,7 +115,7 @@ async function runCustomTest() {
     document.getElementById("groq-custom").textContent = data.groq;
 }
 
-function runBatchTest() {
+async function runBatchTest() {
     const geminiKey = document.getElementById("gemini-key").value;
     const groqKey = document.getElementById("groq-key").value;
 
@@ -125,45 +125,60 @@ function runBatchTest() {
     document.getElementById("gemini-acc").textContent = "--";
     document.getElementById("groq-acc").textContent = "--";
 
-    const source = new EventSource(
-        `/batch_test_stream?gemini_key=${encodeURIComponent(geminiKey)}&groq_key=${encodeURIComponent(groqKey)}`
-    );
-
-    source.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-
-        const i = data.index;
-        const total = data.total;
-
-        document.getElementById("gemini-acc").textContent = `${data.gemini_score}/${i}`;
-        document.getElementById("groq-acc").textContent = `${data.groq_score}/${i}`;
-
-        log.innerHTML += `
-            <p>
-                <b>${i}/${total}</b> — ${data.sentence}<br>
-                Gemini: ${data.gemini} (${data.gemini_correct ? "CORRECT" : "WRONG"}) |
-                Groq: ${data.groq} (${data.groq_correct ? "CORRECT" : "WRONG"})
-            </p>
-        `;
-
-        if (i === total) {
-            const winner =
-                data.gemini_score > data.groq_score ? "Gemini wins!" :
-                data.groq_score > data.gemini_score ? "Groq wins!" :
-                "It's a tie!";
-
-            log.innerHTML += `<p><strong>Batch finished. ${winner}</strong></p>`;
-            source.close();
+    try {
+        const response = await fetch("/batch_test_stream", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({gemini_key: geminiKey, groq_key: groqKey})
+        });
+        if (!response.ok || !response.body) {
+            throw new Error("Could not start the batch stream.");
         }
-    };
 
-    source.onerror = function() {
-        log.innerHTML += "<p style='color:red'>Streaming error.</p>";
-        source.close();
-    };
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+            const {value, done} = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, {stream: true});
+
+            let boundary;
+            while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+                const frame = buffer.slice(0, boundary);
+                buffer = buffer.slice(boundary + 2);
+                const dataLine = frame.split("\n").find(line => line.startsWith("data: "));
+                if (!dataLine) continue;
+
+                const data = JSON.parse(dataLine.slice(6));
+                const i = data.index;
+                const total = data.total;
+
+                document.getElementById("gemini-acc").textContent = `${data.gemini_score}/${i}`;
+                document.getElementById("groq-acc").textContent = `${data.groq_score}/${i}`;
+
+                log.innerHTML += `
+                    <p>
+                        <b>${i}/${total}</b> — ${data.sentence}<br>
+                        Gemini: ${data.gemini} (${data.gemini_correct ? "CORRECT" : "WRONG"}) |
+                        Groq: ${data.groq} (${data.groq_correct ? "CORRECT" : "WRONG"})
+                    </p>
+                `;
+
+                if (i === total) {
+                    const winner =
+                        data.gemini_score > data.groq_score ? "Gemini wins!" :
+                        data.groq_score > data.gemini_score ? "Groq wins!" :
+                        "It's a tie!";
+                    log.innerHTML += `<p><strong>Batch finished. ${winner}</strong></p>`;
+                }
+            }
+        }
+    } catch (error) {
+        log.innerHTML += "<p style='color:red'>Streaming error. Check the API keys and try again.</p>";
+    }
 }
-
-loadDropdown();
 </script>
 </body>
 </html>
